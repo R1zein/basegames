@@ -38,6 +38,22 @@ namespace {
 constexpr UINT WM_HINT_READY = WM_APP + 1;
 constexpr int kHotkeyQuit = 1;
 
+// Комбинация для выхода может быть занята другой программой, поэтому пробуем
+// несколько по очереди. Оверлей сквозной, закрыть его мышью нельзя, так что
+// рабочее сочетание обязательно показываем в строке статуса.
+struct Hotkey {
+    UINT modifiers;
+    UINT key;
+    const wchar_t* name;
+};
+
+constexpr Hotkey kQuitHotkeys[] = {
+    {MOD_CONTROL | MOD_ALT, 'Q', L"Ctrl+Alt+Q"},
+    {MOD_CONTROL | MOD_ALT, 'X', L"Ctrl+Alt+X"},
+    {MOD_CONTROL | MOD_SHIFT, VK_F12, L"Ctrl+Shift+F12"},
+    {MOD_CONTROL | MOD_ALT, VK_OEM_3, L"Ctrl+Alt+~"},
+};
+
 // Сколько кадров подряд доска может читаться как мусор, прежде чем мы решим,
 // что она уехала, и запустим полный поиск заново.
 constexpr int kMissesBeforeRescan = 8;
@@ -64,6 +80,7 @@ struct Hint {
 std::mutex g_mutex;
 Hint g_hint;
 std::atomic<bool> g_running{true};
+std::wstring g_quitHint = L"";
 
 const wchar_t* moveName(bb::Move move) {
     switch (move) {
@@ -283,9 +300,20 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         MessageBoxW(nullptr, L"Не удалось создать окно оверлея", L"smt", MB_ICONERROR);
         return 1;
     }
+    const wchar_t* quitName = nullptr;
+    for (const Hotkey& hotkey : kQuitHotkeys) {
+        if (RegisterHotKey(overlay.handle(), kHotkeyQuit, hotkey.modifiers, hotkey.key)) {
+            quitName = hotkey.name;
+            break;
+        }
+    }
+    g_quitHint = quitName != nullptr ? std::wstring(L"выход ") + quitName
+                                     : std::wstring(L"горячая клавиша занята, закрывайте через диспетчер задач");
+
     overlay.render(std::nullopt, std::nullopt,
-                   options.autoplay ? L"автоигра: поиск доски..." : L"поиск доски...");
-    RegisterHotKey(overlay.handle(), kHotkeyQuit, MOD_CONTROL | MOD_ALT, 'Q');
+                   (options.autoplay ? std::wstring(L"автоигра: поиск доски...")
+                                     : std::wstring(L"поиск доски...")) +
+                       L"   |   " + g_quitHint);
 
     std::thread worker([&overlay, &options] {
         Session session(overlay.handle(), options);
@@ -304,7 +332,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 const std::lock_guard<std::mutex> lock(g_mutex);
                 hint = g_hint;
             }
-            overlay.render(hint.board, hint.move, hint.status);
+            overlay.render(hint.board, hint.move, hint.status + L"   |   " + g_quitHint);
             continue;
         }
         TranslateMessage(&message);

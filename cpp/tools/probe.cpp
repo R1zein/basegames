@@ -106,6 +106,19 @@ int main(int argc, char** argv) {
 
     printTopColors(frame, 12);
 
+    std::printf("\nchto nashlos po kazhdoy teme:\n");
+    for (int i = 0; i < app::themeCount(); ++i) {
+        const app::Candidate candidate = app::probeTheme(frame, i);
+        if (!candidate.found) {
+            std::printf("  %-6s #%06X: cveta na ekrane net\n", app::theme(i).name, app::theme(i).background);
+            continue;
+        }
+        std::printf("  %-6s #%06X: x=%d y=%d w=%d h=%d ploshad=%lld %s\n",
+                    app::theme(i).name, app::theme(i).background, candidate.rect.x, candidate.rect.y,
+                    candidate.rect.width, candidate.rect.height, candidate.area,
+                    candidate.plausible ? "podhodit" : "otbrakovano po forme ili razmeru");
+    }
+
     if (argc > 1) {
         const std::string arg(argv[1]);
         const std::wstring path(arg.begin(), arg.end());

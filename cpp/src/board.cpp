@@ -166,7 +166,7 @@ const Theme& theme(int index) { return kThemes[index]; }
 int themeCount() { return kThemeCount; }
 
 std::optional<Detection> findBoard(const Frame& frame, int tolerance) {
-    const int threshold = tolerance * 3;
+    const int threshold = tolerance;
 
     std::optional<Detection> best;
     long long bestArea = 0;
@@ -206,6 +206,14 @@ bb::Board readBoard(const Frame& frame, const Rect& rect, int themeIndex) {
         }
     }
     return board;
+}
+
+Candidate probeTheme(const Frame& frame, int themeIndex, int tolerance) {
+    Candidate candidate;
+    candidate.found = largestComponent(frame, kThemes[themeIndex].background, tolerance, candidate.rect,
+                                       candidate.area);
+    candidate.plausible = candidate.found && plausibleBoard(candidate.rect);
+    return candidate;
 }
 
 bool looksLikeGame(bb::Board board) {

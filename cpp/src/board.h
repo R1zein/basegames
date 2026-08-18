@@ -39,9 +39,24 @@ struct Detection {
 const Theme& theme(int index);
 int themeCount();
 
+// Допуск задаётся суммой отклонений по трём каналам. Он намеренно узкий:
+// в тёмной теме фон доски отстоит от фона страницы всего на 43, и стоит
+// взять порог шире — заливка растекается на всё окно браузера.
+constexpr int kDefaultTolerance = 20;
+
 // Ищет доску по цвету фона каждой известной темы. Фон образует связную
 // решётку между плитками, поэтому заливки достаточно.
-std::optional<Detection> findBoard(const Frame& frame, int tolerance = 24);
+std::optional<Detection> findBoard(const Frame& frame, int tolerance = kDefaultTolerance);
+
+// Что нашлось по конкретной теме — для диагностики распознавания.
+struct Candidate {
+    bool found = false;
+    bool plausible = false;
+    Rect rect;
+    long long area = 0;
+};
+
+Candidate probeTheme(const Frame& frame, int themeIndex, int tolerance = kDefaultTolerance);
 
 bb::Board readBoard(const Frame& frame, const Rect& rect, int themeIndex);
 
