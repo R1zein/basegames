@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Инструменты
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Отладочные снимки экрана и датасеты
+debug/
+captures/
+*.png
+*.jpg
+!assets/*.png
+
+# Редакторы и ОС
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
