@@ -80,8 +80,9 @@ void testMerges() {
 
 void testLegalMoves() {
     const bb::Board start = boardOf({2, 4, 8, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    // Строка заполнена целиком и без пар, поэтому по горизонтали ходов нет вовсе.
     check(bb::moveBoard(start, bb::Move::Left) == start, "влево двигаться некуда");
-    check(bb::moveBoard(start, bb::Move::Right) != start, "вправо ход есть");
+    check(bb::moveBoard(start, bb::Move::Right) == start, "вправо двигаться некуда");
     check(bb::moveBoard(start, bb::Move::Up) == start, "вверх двигаться некуда");
     check(bb::moveBoard(start, bb::Move::Down) != start, "вниз ход есть");
 }

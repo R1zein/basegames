@@ -4,6 +4,9 @@ project(smt2048 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# windows.h объявляет min/max макросами и ломает std::min/std::max.
+add_compile_definitions(NOMINMAX)
+
 if(MSVC)
     # /utf-8 обязателен: в исходниках кириллица в строковых литералах.
     add_compile_options(/utf-8 /W4 /permissive-)

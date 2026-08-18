@@ -12,6 +12,12 @@
 #include <thread>
 
 #include <windows.h>
+
+// gdiplus.h рассчитывает на min/max в глобальной области, а NOMINMAX их убрал.
+#include <algorithm>
+using std::max;
+using std::min;
+
 #include <objidl.h>
 #include <gdiplus.h>
 
