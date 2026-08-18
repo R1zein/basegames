@@ -29,3 +29,10 @@ desktop.ini
 
 # PyCharm
 .idea/
+
+# Сборка C++
+cpp/build/
+out/
+*.exe
+*.obj
+*.pdb
