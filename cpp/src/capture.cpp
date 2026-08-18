@@ -56,10 +56,11 @@ bool ScreenCapture::ensureSurface(int width, int height) {
 }
 
 bool ScreenCapture::grab(Frame& frame) {
-    const int originX = GetSystemMetrics(SM_XVIRTUALSCREEN);
-    const int originY = GetSystemMetrics(SM_YVIRTUALSCREEN);
-    const int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-    const int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    return grabRegion(GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
+                      GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), frame);
+}
+
+bool ScreenCapture::grabRegion(int originX, int originY, int width, int height, Frame& frame) {
     if (width <= 0 || height <= 0 || !ensureSurface(width, height)) {
         return false;
     }

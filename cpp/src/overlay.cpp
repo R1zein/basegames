@@ -122,8 +122,9 @@ void Overlay::render(const std::optional<Rect>& board, std::optional<bb::Move> m
     if (board.has_value()) {
         // Экран снимается в физических пикселях, а процесс объявлен
         // per-monitor DPI aware, поэтому пересчёт координат не нужен.
-        const float x = static_cast<float>(board->x);
-        const float y = static_cast<float>(board->y);
+        // Приходят экранные координаты, а рисуем в координатах окна.
+        const float x = static_cast<float>(board->x - originX_);
+        const float y = static_cast<float>(board->y - originY_);
         const float w = static_cast<float>(board->width);
         const float h = static_cast<float>(board->height);
 

@@ -17,6 +17,7 @@ add_library(smt_core STATIC
     src/solver.cpp
     src/capture.cpp
     src/board.cpp
+    src/input.cpp
     src/overlay.cpp
 )
 target_include_directories(smt_core PUBLIC src)
@@ -24,6 +25,9 @@ target_link_libraries(smt_core PUBLIC gdiplus)
 
 add_executable(smt WIN32 src/main.cpp)
 target_link_libraries(smt PRIVATE smt_core)
+
+add_executable(smt_probe tools/probe.cpp)
+target_link_libraries(smt_probe PRIVATE smt_core)
 
 enable_testing()
 add_executable(smt_tests tests/test_solver.cpp)

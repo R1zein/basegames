@@ -8,44 +8,42 @@
 namespace app {
 namespace {
 
-// Палитра gabrielecirulli/2048. Хранится показатель степени, как в битборде.
-struct Tile {
-    std::uint32_t color;
-    int exponent;
+// Цвета сняты прямо из CSS 2048.io. Светлая тема совпадает с классической
+// вёрсткой gabrielecirulli с точностью до единиц по каналу.
+constexpr Theme kThemes[] = {
+    {
+        "light",
+        0xBBADA0,
+        {0xCDC1B4, 0xEEE4DA, 0xEEE1C9, 0xF3B27A, 0xF69664, 0xF77D5F, 0xF75F3B,
+         0xEDD073, 0xEDCC62, 0xEDC950, 0xEDC53F, 0xEDC22E, 0x3C3A33},
+    },
+    {
+        "dark",
+        0x342D24,
+        // В тёмной теме 2048 и «super» окрашены одинаково, поэтому всё, что
+        // больше 2048, читается как 2048. Для игры этого достаточно.
+        {0x3F3729, 0x876849, 0x845A31, 0xC67D33, 0xD26F41, 0xCA4F31, 0xAD362B,
+         0xE0A13A, 0xE4AB33, 0xE8B52D, 0xEDC026, 0xF2CB1E, 0xF2CB1E},
+    },
 };
 
-constexpr std::uint32_t kBoardBackground = 0xBBADA0;
-constexpr Tile kPalette[] = {
-    {0xCDC1B4, 0},   // пустая клетка
-    {0xEEE4DA, 1},   // 2
-    {0xEDE0C8, 2},   // 4
-    {0xF2B179, 3},   // 8
-    {0xF59563, 4},   // 16
-    {0xF67C5F, 5},   // 32
-    {0xF65E3B, 6},   // 64
-    {0xEDCF72, 7},   // 128
-    {0xEDCC61, 8},   // 256
-    {0xEDC850, 9},   // 512
-    {0xEDC53F, 10},  // 1024
-    {0xEDC22E, 11},  // 2048
-    {0x3C3A32, 12},  // 4096 и выше
-};
-
+constexpr int kThemeCount = static_cast<int>(sizeof(kThemes) / sizeof(kThemes[0]));
 constexpr int kMinBoardSize = 120;
+constexpr int kMinBackgroundPixels = 4000;
 constexpr double kCellMargin = 0.22;
 
 int colorDistance(std::uint32_t a, std::uint32_t b) {
     return std::abs(red(a) - red(b)) + std::abs(green(a) - green(b)) + std::abs(blue(a) - blue(b));
 }
 
-int nearestExponent(std::uint32_t color) {
+int nearestExponent(const Theme& t, std::uint32_t color) {
     int best = 0;
-    int bestDistance = colorDistance(color, kPalette[0].color);
-    for (const Tile& tile : kPalette) {
-        const int distance = colorDistance(color, tile.color);
+    int bestDistance = colorDistance(color, t.cells[0]);
+    for (int exponent = 1; exponent < 13; ++exponent) {
+        const int distance = colorDistance(color, t.cells[exponent]);
         if (distance < bestDistance) {
             bestDistance = distance;
-            best = tile.exponent;
+            best = exponent;
         }
     }
     return best;
@@ -77,19 +75,33 @@ std::uint32_t dominantColor(const Frame& frame, int x0, int y0, int x1, int y1) 
 
 }  // namespace
 
-std::optional<Rect> findBoard(const Frame& frame, int tolerance) {
-    const int threshold = tolerance * 3;
+namespace {
+
+// Наибольшая связная область заданного цвета: её габарит и площадь.
+bool largestComponent(const Frame& frame, std::uint32_t color, int threshold, Rect& out, long long& outArea) {
     const std::size_t total = static_cast<std::size_t>(frame.width) * frame.height;
+
+    // Дешёвая отсечка: если пикселей нужного цвета мало, заливку можно не
+    // запускать вовсе. На полноэкранном кадре это экономит десятки миллисекунд.
+    int matching = 0;
+    for (std::size_t i = 0; i < total; i += 16) {
+        if (colorDistance(frame.pixels[i], color) < threshold) {
+            ++matching;
+        }
+    }
+    if (matching * 16 < kMinBackgroundPixels) {
+        return false;
+    }
 
     std::vector<char> visited(total, 0);
     std::vector<int> stack;
-    Rect best;
     long long bestArea = 0;
+    bool found = false;
 
     for (int y = 0; y < frame.height; ++y) {
         for (int x = 0; x < frame.width; ++x) {
             const std::size_t start = static_cast<std::size_t>(y) * frame.width + x;
-            if (visited[start] || colorDistance(frame.pixels[start], kBoardBackground) >= threshold) {
+            if (visited[start] || colorDistance(frame.pixels[start], color) >= threshold) {
                 continue;
             }
 
@@ -118,7 +130,7 @@ std::optional<Rect> findBoard(const Frame& frame, int tolerance) {
                         continue;
                     }
                     const std::size_t next = static_cast<std::size_t>(ny) * frame.width + nx;
-                    if (visited[next] || colorDistance(frame.pixels[next], kBoardBackground) >= threshold) {
+                    if (visited[next] || colorDistance(frame.pixels[next], color) >= threshold) {
                         continue;
                     }
                     visited[next] = 1;
@@ -128,23 +140,53 @@ std::optional<Rect> findBoard(const Frame& frame, int tolerance) {
 
             if (area > bestArea) {
                 bestArea = area;
-                best = Rect{minX, minY, maxX - minX + 1, maxY - minY + 1};
+                out = Rect{minX, minY, maxX - minX + 1, maxY - minY + 1};
+                found = true;
             }
         }
     }
 
-    if (best.width < kMinBoardSize || best.height < kMinBoardSize) {
-        return std::nullopt;
+    outArea = bestArea;
+    return found;
+}
+
+bool plausibleBoard(const Rect& rect) {
+    if (rect.width < kMinBoardSize || rect.height < kMinBoardSize) {
+        return false;
     }
     // Доска квадратная; сильно вытянутый прямоугольник — ложное срабатывание.
-    const double ratio = static_cast<double>(best.width) / best.height;
-    if (ratio < 0.85 || ratio > 1.18) {
-        return std::nullopt;
+    const double ratio = static_cast<double>(rect.width) / rect.height;
+    return ratio >= 0.85 && ratio <= 1.18;
+}
+
+}  // namespace
+
+const Theme& theme(int index) { return kThemes[index]; }
+
+int themeCount() { return kThemeCount; }
+
+std::optional<Detection> findBoard(const Frame& frame, int tolerance) {
+    const int threshold = tolerance * 3;
+
+    std::optional<Detection> best;
+    long long bestArea = 0;
+    for (int i = 0; i < kThemeCount; ++i) {
+        Rect rect;
+        long long area = 0;
+        if (!largestComponent(frame, kThemes[i].background, threshold, rect, area)) {
+            continue;
+        }
+        if (!plausibleBoard(rect) || area <= bestArea) {
+            continue;
+        }
+        bestArea = area;
+        best = Detection{rect, i};
     }
     return best;
 }
 
-bb::Board readBoard(const Frame& frame, const Rect& rect) {
+bb::Board readBoard(const Frame& frame, const Rect& rect, int themeIndex) {
+    const Theme& t = kThemes[themeIndex];
     const double cellWidth = rect.width / 4.0;
     const double cellHeight = rect.height / 4.0;
     const double insetX = cellWidth * kCellMargin;
@@ -160,8 +202,7 @@ bb::Board readBoard(const Frame& frame, const Rect& rect) {
             if (x1 <= x0 || y1 <= y0) {
                 continue;
             }
-            const int exponent = nearestExponent(dominantColor(frame, x0, y0, x1, y1));
-            board = bb::withTile(board, row * 4 + col, exponent);
+            board = bb::withTile(board, row * 4 + col, nearestExponent(t, dominantColor(frame, x0, y0, x1, y1)));
         }
     }
     return board;

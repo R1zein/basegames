@@ -36,7 +36,13 @@ public:
     ScreenCapture(const ScreenCapture&) = delete;
     ScreenCapture& operator=(const ScreenCapture&) = delete;
 
+    // Весь виртуальный рабочий стол — нужен, пока доска не найдена.
     bool grab(Frame& frame);
+
+    // Только заданный прямоугольник в экранных координатах. Когда доска
+    // уже найдена, снимать весь экран незачем: на четырёх мониторах это
+    // миллионы лишних пикселей на каждом кадре.
+    bool grabRegion(int x, int y, int width, int height, Frame& frame);
 
 private:
     void release();
